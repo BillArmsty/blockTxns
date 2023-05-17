@@ -20,9 +20,13 @@ async fn main() {
         .unwrap();
 
     println!(
-        "block number {}, number of transactions: {},",
+        "block number {}, parent: {:?}, transactions: {}, gas used: {:?}, gas limit : {:?}",
         latest_block.number.unwrap(),
-        &latest_block.transactions.len(),
+        latest_block.parent_hash,
+        latest_block.transactions.len(),
+        latest_block.gas_used,
+        latest_block.gas_limit
+
        
     );
 }
