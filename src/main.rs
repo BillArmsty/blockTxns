@@ -1,8 +1,10 @@
 // use chrono::prelude::*;
 use std::env;
 use web3::helpers as w3h;
+use web3::contract::{Contract, Options};
 use web3::types::H160;
 use web3::types::{ BlockId, BlockNumber, TransactionId, U256, U64 };
+
 
 #[tokio::main]
 async fn main() {
@@ -45,19 +47,66 @@ async fn main() {
                 continue;
             }
         };
+        
+        //Determining if an address is a valid smart contract address
+        let smart_contract_addr = match tx.to {
+            Some(addr) => match web3s.eth().code(addr, None).await {
+                Ok(code) => {
+                    if code == web3::types::Bytes::from([]) {
+                        println!("No code at address , skipping");
+                        continue;
+                    } else {
+                        println!("Code found at address ");
+                        addr
+                    }
+                }
+                _ => {
+                    println!("Error fetching code at address skipping.");
+                    continue;
+                }
+            },
+            _ => {
+                println!("To address is not a valid address, skipping.");
+                continue;
+   
 
-        let from_addr = tx.from.unwrap_or(H160::zero());
-        let to_addr = tx.to.unwrap_or(H160::zero());
-        let eth_value = wei_to_eth(tx.value);
+       
+            }
+        };
+
+        //Invoking the name function to get the token name
+
+        let smart_contract = Contract::from_json(
+            web3s.eth(),
+            smart_contract_addr,
+            include_bytes!("erc20_abi.json"),
+        );
+
+
+        let token_name: String = match smart_contract.expect("Failed to get smart contract")
+            .query("name", (), None, Options::default(), None)
+            .await
+            {
+                Ok(result) => result,
+                Err(error) => {
+                    println!("Error fetching token name, skipping. {:?}", error);
+                    continue;
+                }
+            };
+            let from_addr = tx.from.unwrap_or(H160::zero());
+            let to_addr = tx.to.unwrap_or(H160::zero());
+            let eth_value = wei_to_eth(tx.value);
+
         println!(
-            "[{}] from: {:?}, to: {:?}, value: {:?}, gas: {:?}, gas price: {:?}",
+            "[{}] ({}) from: {}, to: {}, value: {}, gas: {}",
             tx.transaction_index.unwrap_or(U64::from(0)),
+            &token_name,
             w3h::to_string(&from_addr),
             w3h::to_string(&to_addr),
             eth_value,
-            tx.gas,
-            tx.gas_price 
-        );
+            tx.gas
+        );    
+
     }
 }
 
